@@ -9,6 +9,7 @@ import xml.etree.cElementTree as ET
 
 
 current_user = None
+Admin = False
 
 #key = Fernet.generate_key()
 key=b't3M7EHNbF7mDvrW9An5useVRS7NW90ro3TsjeDeREsQ='
@@ -66,6 +67,50 @@ def read_xml():
 
         print(user_id, salutation_id, first_name, last_name, email, password, address, postcode)
 
+def insert_car(make, model, price, condition, status):
+    conn = sqlite3.connect("carsales.db")
+    cursor_obj = conn.cursor()
+
+def add_car():
+    add_car_window = Toplevel()
+    add_car_window.geometry("400x400")
+    add_car_window.title("Register")
+
+    frame = Frame(add_car_window)
+    frame.place(relx=0.5, rely=0.5, anchor="center")
+    frame.grid_columnconfigure(0, weight=1)
+
+    makeLabel = Label(frame, text="Car Make:")
+    makeLabel.grid(row=0, column=0, padx=5, pady=0)
+    make_var = StringVar()
+    makeEntry = Entry(frame, textvariable=make_var)
+    makeEntry.grid(row=1, column=0, padx=5, pady=(0,5))
+
+    modelLabel = Label(frame, text="Car Model:")
+    modelLabel.grid(row=2, column=0, padx=5, pady=0)
+    model = StringVar()
+    modelEntry = Entry(frame, textvariable=model)
+    modelEntry.grid(row=3, column=0, padx=5, pady=(0,5))
+
+    priceLabel = Label(frame, text="Price:")
+    priceLabel.grid(row=4, column=0, padx=5, pady=0)
+    price = IntVar()
+    priceEntry = Entry(frame, textvariable=price)
+    priceEntry.grid(row=5, column=0, padx=5, pady=(0, 5))
+
+    conditionLabel = Label(frame, text="Cars Condition:")
+    conditionLabel.grid(row=6, column=0, padx=5, pady=0)
+    condition_var = StringVar()
+    conditionEntry = Combobox(frame, textvariable=condition_var)
+    conditionEntry['values'] = ('Brand New', 'Used - Like New', 'Used - Excellent', 'Used - Good', 'Used - Fair', 'Used - Bad')
+    conditionEntry.current(0)
+    condition_var.set(conditionEntry.get())
+    conditionEntry.grid(row=7, column=0, padx=5, pady=(0,5))
+
+    add_car_Button = Button(frame, text="Add Car")
+    add_car_Button.grid(row=8, column=0, padx=5, pady=5)
+
+    add_car_window.mainloop()
 
 
 
@@ -167,6 +212,8 @@ def settings():
 
 
 def main():
+    global Admin
+
     main_window = Toplevel()
     main_window.geometry("800x800")
     main_window.title("Main Window")
@@ -181,20 +228,26 @@ def main():
 
     button_style = {"width": 15, "height": 2}
 
-    loginButton = Button(sidebar_frame, text="Login", command=login, **button_style)
-    loginButton.pack(padx=5, pady=(5,0))
+    if Admin:
+        addCar = Button(sidebar_frame, command=add_car ,text="Add Car", **button_style)
+        addCar.pack(padx=5, pady=(5,0))
 
-    setting_button = Button(sidebar_frame, text="Settings", command=settings, **button_style)
-    setting_button.pack(padx=5)
+    else:
+        loginButton = Button(sidebar_frame, text="Login", command=login, **button_style)
+        loginButton.pack(padx=5, pady=(5,0))
 
-    exitButton = Button(sidebar_frame, text="Exit", command=main_window.destroy, **button_style)
-    exitButton.pack(padx=5)
+        setting_button = Button(sidebar_frame, text="Settings", command=settings, **button_style)
+        setting_button.pack(padx=5)
+
+        exitButton = Button(sidebar_frame, text="Exit", command=main_window.destroy, **button_style)
+        exitButton.pack(padx=5)
 
     main_window.mainloop()
 
 
 def validate_login(email, password):
     global current_user
+    global Admin
 
     if not email.get() or not password.get():
         messagebox.showerror("Missing Fields", "Please enter both email and password.")
@@ -203,11 +256,11 @@ def validate_login(email, password):
     connection_obj = sqlite3.connect('carsales.db')
     cursor_obj = connection_obj.cursor()
 
-    cursor_obj.execute("SELECT user_id, email, password FROM user")
+    cursor_obj.execute("SELECT user_id, email, password, is_admin FROM user")
     users = cursor_obj.fetchall()
     found = False
 
-    for user_id, enc_email, enc_password in users:
+    for user_id, enc_email, enc_password, is_admin in users:
         try:
             decrypted_email = fernet.decrypt(enc_email.encode()).decode()
             decrypted_password = fernet.decrypt(enc_password.encode()).decode()
@@ -217,6 +270,8 @@ def validate_login(email, password):
         if decrypted_email == email.get() and decrypted_password == password.get():
             current_user = user_id
             found = True
+            if is_admin == "TRUE":
+                Admin = True
             break
 
     if found:
@@ -263,9 +318,9 @@ def validate_register(salutation_var, firstName, lastName, email, address, postc
         encrypted_password = fernet.encrypt(password.get().encode()).decode()
 
         cursor_obj.execute(
-            "INSERT INTO user (salutations_id, first_name, last_name, email, address, postcode_id, password) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO user (salutations_id, first_name, last_name, email, address, postcode_id, password, is_admin) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (salutation_id, firstName.get(), lastName.get(), encrypted_email, address.get(), postcode_id,
-             encrypted_password)
+             encrypted_password, "FALSE")
         )
 
         connection_obj.commit()
@@ -389,7 +444,7 @@ def create_car_make_graph():
         make = row[0]
         value = int(row[1])
         canvas.create_text(start_point_text_x, start_point_text_y + step * count, text=make, anchor="w")
-        canvas.create_rectangle(start_point_rect_x, start_point_rect_y + step * count, start_point_rect_x + (value*10), start_point_rect_y + 20 + step * count, fill='gray60')
+        canvas.create_rectangle(start_point_rect_x, start_point_rect_y + step * count, start_point_rect_x + (value*10), start_point_rect_y + 20 + step * count, fill='red')
         canvas.create_text(start_point_rect_x + (value*10) + 10, start_point_text_y + step * count, text=f"{value}")
 
     tkWindow.mainloop()
@@ -397,4 +452,4 @@ def create_car_make_graph():
 
 
 if __name__ == '__main__':
-    create_car_make_graph()
+    login()
