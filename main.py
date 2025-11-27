@@ -67,9 +67,91 @@ def read_xml():
 
         print(user_id, salutation_id, first_name, last_name, email, password, address, postcode)
 
-def insert_car(make, model, price, condition, status):
+import sqlite3
+
+def send_media_to_sql():
+    file_path_name = r'C:\Users\0hampg66\Downloads\bmw.jpg'
+
+    with open(file_path_name, 'rb') as file:
+        file_blob = file.read()
+
+    print("[INFO] : Last 100 bytes of the blob =", file_blob[:100])
+    conn = None
+    cur = None
+
+    try:
+        conn = sqlite3.connect("carsales.db")
+        print("[INFO] : Successful connection")
+        cur = conn.cursor()
+
+        sql_update = "UPDATE storage SET BLOB=? WHERE car_id=?"
+        cur.execute(sql_update, (file_blob, 3))
+        conn.commit()
+
+        print("[INFO] : The blob for", file_path_name, "was saved to the database.")
+
+    except Exception as e:
+        print("[ERROR] :", e)
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+
+
+def insert_car(make_var, model_var, price_var, condition_var):
     conn = sqlite3.connect("carsales.db")
-    cursor_obj = conn.cursor()
+    cursor = conn.cursor()
+
+    make = make_var.get().strip()
+    model = model_var.get().strip()
+    condition = condition_var.get().strip()
+    price = price_var.get()
+
+    if not make or not model:
+        messagebox.showerror("Error", "Make and model cannot be empty.")
+        return
+
+    cursor.execute("SELECT make_id FROM makes WHERE makes = ?", (make,))
+    row = cursor.fetchone()
+    if row:
+        make_id = row[0]
+    else:
+        cursor.execute("INSERT INTO makes (makes) VALUES (?)", (make,))
+        make_id = cursor.lastrowid
+
+    cursor.execute("SELECT model_id FROM models WHERE model = ?", (model,))
+    row = cursor.fetchone()
+    if row:
+        model_id = row[0]
+    else:
+        cursor.execute("INSERT INTO models (model) VALUES (?)", (model,))
+        model_id = cursor.lastrowid
+
+    cursor.execute("SELECT condition_id FROM conditions WHERE conditions = ?", (condition,))
+    row = cursor.fetchone()
+    if not row:
+        messagebox.showerror("Error", "Invalid condition selected.")
+        conn.close()
+        return
+    condition_id = row[0]
+
+    cursor.execute("""
+        INSERT INTO storage (make_id, model_id, price, condition_id, status_id)
+        VALUES (?, ?, ?, ?, ?)
+    """, (make_id, model_id, price, condition_id, 2))
+
+    conn.commit()
+    conn.close()
+
+    messagebox.showinfo("Success", "Your car has been successfully added.")
+
+
+
+
 
 def add_car():
     add_car_window = Toplevel()
@@ -80,38 +162,25 @@ def add_car():
     frame.place(relx=0.5, rely=0.5, anchor="center")
     frame.grid_columnconfigure(0, weight=1)
 
-    makeLabel = Label(frame, text="Car Make:")
-    makeLabel.grid(row=0, column=0, padx=5, pady=0)
+    Label(frame, text="Car Make:").grid(row=0, column=0, pady=0)
     make_var = StringVar()
-    makeEntry = Entry(frame, textvariable=make_var)
-    makeEntry.grid(row=1, column=0, padx=5, pady=(0,5))
+    Entry(frame, textvariable=make_var).grid(row=1, column=0, pady=(0, 5))
 
-    modelLabel = Label(frame, text="Car Model:")
-    modelLabel.grid(row=2, column=0, padx=5, pady=0)
-    model = StringVar()
-    modelEntry = Entry(frame, textvariable=model)
-    modelEntry.grid(row=3, column=0, padx=5, pady=(0,5))
+    Label(frame, text="Car Model:").grid(row=2, column=0, pady=0)
+    model_var = StringVar()
+    Entry(frame, textvariable=model_var).grid(row=3, column=0, pady=(0, 5))
 
-    priceLabel = Label(frame, text="Price:")
-    priceLabel.grid(row=4, column=0, padx=5, pady=0)
-    price = IntVar()
-    priceEntry = Entry(frame, textvariable=price)
-    priceEntry.grid(row=5, column=0, padx=5, pady=(0, 5))
+    Label(frame, text="Price:").grid(row=4, column=0, pady=0)
+    price_var = IntVar()
+    Entry(frame, textvariable=price_var).grid(row=5, column=0, pady=(0, 5))
 
-    conditionLabel = Label(frame, text="Cars Condition:")
-    conditionLabel.grid(row=6, column=0, padx=5, pady=0)
+    Label(frame, text="Car Condition:").grid(row=6, column=0, pady=0)
     condition_var = StringVar()
-    conditionEntry = Combobox(frame, textvariable=condition_var)
-    conditionEntry['values'] = ('Brand New', 'Used - Like New', 'Used - Excellent', 'Used - Good', 'Used - Fair', 'Used - Bad')
+    conditionEntry = Combobox(frame, textvariable=condition_var, values=('Brand New', 'Used - Like New', 'Used - Excellent','Used - Good', 'Used - Fair', 'Used - Bad'))
+    conditionEntry.grid(row=7, column=0, pady=(0, 5))
     conditionEntry.current(0)
-    condition_var.set(conditionEntry.get())
-    conditionEntry.grid(row=7, column=0, padx=5, pady=(0,5))
 
-    add_car_Button = Button(frame, text="Add Car")
-    add_car_Button.grid(row=8, column=0, padx=5, pady=5)
-
-    add_car_window.mainloop()
-
+    Button(frame, text="Add Car", command=lambda: insert_car(make_var, model_var, price_var, condition_var)).grid(row=8, column=0, pady=5)
 
 
 def validate_update_email(oldEmail, newEmail):
@@ -452,4 +521,5 @@ def create_car_make_graph():
 
 
 if __name__ == '__main__':
+    send_media_to_sql()
     login()
