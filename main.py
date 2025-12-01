@@ -7,7 +7,7 @@ from cryptography.fernet import Fernet
 import xml.etree.cElementTree as ET
 
 
-
+sql_queries_flags = ["--", ";", "/*", "*/", " OR", " AND", "'"]
 current_user = None
 Admin = False
 
@@ -186,36 +186,44 @@ def add_car():
 def validate_update_email(oldEmail, newEmail):
     global current_user
 
-    connection_obj = sqlite3.connect('carsales.db')
-    cursor_obj = connection_obj.cursor()
 
-    cursor_obj.execute("SELECT email FROM user WHERE user_id = ?", (current_user,))
-    user_data = cursor_obj.fetchone()
+    if any(flag.lower() in oldEmail.lower() for flag in sql_queries_flags):
+        messagebox.showerror("Invalid Old Email", "Invalid Old email.")
 
-    if user_data:
-        try:
-            decrypted_email = fernet.decrypt(user_data[0].encode()).decode()
+    elif any(flag.lower() in newEmail.lower() for flag in sql_queries_flags):
+        messagebox.showerror("Invalid New Email", "Invalid New email.")
 
-        except Exception as e:
-            messagebox.showerror("Error", f"Decryption failed: {str(e)}")
-            connection_obj.close()
-            return
-
-        if decrypted_email == oldEmail:
-            try:
-                encrypted_new_email = fernet.encrypt(newEmail.encode()).decode()
-                cursor_obj.execute("UPDATE user SET email = ? WHERE user_id = ?", (encrypted_new_email, current_user))
-                connection_obj.commit()
-                messagebox.showinfo("Email Updated", "Your email has been updated successfully.")
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to update email: {str(e)}")
-        else:
-            messagebox.showerror("Error", "Old email does not match our records.")
     else:
-        messagebox.showerror("Error", "User not found.")
+        connection_obj = sqlite3.connect('carsales.db')
+        cursor_obj = connection_obj.cursor()
 
-    cursor_obj.close()
-    connection_obj.close()
+        cursor_obj.execute("SELECT email FROM user WHERE user_id = ?", (current_user,))
+        user_data = cursor_obj.fetchone()
+
+        if user_data:
+            try:
+                decrypted_email = fernet.decrypt(user_data[0].encode()).decode()
+
+            except Exception as e:
+                messagebox.showerror("Error", f"Decryption failed: {str(e)}")
+                connection_obj.close()
+                return
+
+            if decrypted_email == oldEmail:
+                try:
+                    encrypted_new_email = fernet.encrypt(newEmail.encode()).decode()
+                    cursor_obj.execute("UPDATE user SET email = ? WHERE user_id = ?", (encrypted_new_email, current_user))
+                    connection_obj.commit()
+                    messagebox.showinfo("Email Updated", "Your email has been updated successfully.")
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to update email: {str(e)}")
+            else:
+                messagebox.showerror("Error", "Old email does not match our records.")
+        else:
+            messagebox.showerror("Error", "User not found.")
+
+        cursor_obj.close()
+        connection_obj.close()
 
 
 
@@ -320,34 +328,40 @@ def validate_login(email, password):
 
     if not email.get() or not password.get():
         messagebox.showerror("Missing Fields", "Please enter both email and password.")
-        return
 
-    connection_obj = sqlite3.connect('carsales.db')
-    cursor_obj = connection_obj.cursor()
+    if any(flag.lower() in password.get().lower() for flag in sql_queries_flags):
+        messagebox.showerror("Invalid Password", "Invalid password.")
 
-    cursor_obj.execute("SELECT user_id, email, password, is_admin FROM user")
-    users = cursor_obj.fetchall()
-    found = False
+    elif any(flag.lower() in email.get().lower() for flag in sql_queries_flags):
+        messagebox.showerror("Invalid Email", "Invalid email.")
 
-    for user_id, enc_email, enc_password, is_admin in users:
-        try:
-            decrypted_email = fernet.decrypt(enc_email.encode()).decode()
-            decrypted_password = fernet.decrypt(enc_password.encode()).decode()
-        except Exception:
-            continue
-
-        if decrypted_email == email.get() and decrypted_password == password.get():
-            current_user = user_id
-            found = True
-            if is_admin == "TRUE":
-                Admin = True
-            break
-
-    if found:
-        messagebox.showinfo(message="Login Successful", title="Login Successful")
-        main()
     else:
-        messagebox.showerror(message="Login Failed", title="Login Failed")
+        connection_obj = sqlite3.connect('carsales.db')
+        cursor_obj = connection_obj.cursor()
+
+        cursor_obj.execute("SELECT user_id, email, password, is_admin FROM user")
+        users = cursor_obj.fetchall()
+        found = False
+
+        for user_id, enc_email, enc_password, is_admin in users:
+            try:
+                decrypted_email = fernet.decrypt(enc_email.encode()).decode()
+                decrypted_password = fernet.decrypt(enc_password.encode()).decode()
+            except Exception:
+                continue
+
+            if decrypted_email == email.get() and decrypted_password == password.get():
+                current_user = user_id
+                found = True
+                if is_admin == "TRUE":
+                    Admin = True
+                break
+
+        if found:
+            messagebox.showinfo(message="Login Successful", title="Login Successful")
+            main()
+        else:
+            messagebox.showerror(message="Login Failed", title="Login Failed")
 
 
 def validate_register(salutation_var, firstName, lastName, email, address, postcode, password):
@@ -355,47 +369,69 @@ def validate_register(salutation_var, firstName, lastName, email, address, postc
         messagebox.showerror("Missing Fields", "Please fill in all fields before registering.")
         return
 
-    connection_obj = sqlite3.connect('carsales.db')
-    cursor_obj = connection_obj.cursor()
-    value_email = email.get()
+    if any(flag.lower() in password.get().lower() for flag in sql_queries_flags):
+        messagebox.showerror("Invalid Password", "Invalid password.")
 
-    cursor_obj.execute("SELECT * FROM user WHERE email = ?", (value_email,))
-    output = cursor_obj.fetchall()
+    elif any(flag.lower() in salutation_var.get().lower() for flag in sql_queries_flags):
+        messagebox.showerror("Invalid Salutation", "Invalid salutation.")
 
-    if len(output) > 0:
-        messagebox.showerror(message="Email already exists", title="Registration Failed")
+    elif any(flag.lower() in firstName.get().lower() for flag in sql_queries_flags):
+        messagebox.showerror("Invalid First Name", "Invalid first name.")
+
+    elif any(flag.lower() in lastName.get().lower() for flag in sql_queries_flags):
+        messagebox.showerror("Invalid Last Name", "Invalid last name.")
+
+    elif any(flag.lower() in address.get().lower() for flag in sql_queries_flags):
+        messagebox.showerror("Invalid Address", "Invalid address.")
+
+    elif any(flag.lower() in postcode.get().lower() for flag in sql_queries_flags):
+        messagebox.showerror("Invalid Postcode", "Invalid postcode.")
+
+    elif any(flag.lower() in email.get().lower() for flag in sql_queries_flags):
+        messagebox.showerror("Invalid Email", "Invalid email.")
+
     else:
-        cursor_obj.execute("SELECT salutation_id FROM salutations WHERE salutation = ?", (salutation_var.get(),))
-        salutation_id = cursor_obj.fetchone()
+        connection_obj = sqlite3.connect('carsales.db')
+        cursor_obj = connection_obj.cursor()
+        value_email = email.get()
 
-        if not salutation_id:
-            raise ValueError("Invalid salutation.")
-        salutation_id = salutation_id[0]
+        cursor_obj.execute("SELECT * FROM user WHERE email = ?", (value_email,))
+        output = cursor_obj.fetchall()
+
+        if len(output) > 0:
+            messagebox.showerror(message="Email already exists", title="Registration Failed")
+        else:
+            cursor_obj.execute("SELECT salutation_id FROM salutations WHERE salutation = ?", (salutation_var.get(),))
+            salutation_id = cursor_obj.fetchone()
+
+            if not salutation_id:
+                raise ValueError("Invalid salutation.")
+            salutation_id = salutation_id[0]
 
 
-        cursor_obj.execute("SELECT postcode_id FROM postcodes WHERE postcode = ?", (postcode.get(),))
-        postcode_id = cursor_obj.fetchone()
-
-        if not postcode_id:
-            cursor_obj.execute("INSERT INTO postcodes (postcode) VALUES(?)", (postcode.get(),))
             cursor_obj.execute("SELECT postcode_id FROM postcodes WHERE postcode = ?", (postcode.get(),))
             postcode_id = cursor_obj.fetchone()
 
-        postcode_id = postcode_id[0]
+            if not postcode_id:
+                cursor_obj.execute("INSERT INTO postcodes (postcode) VALUES(?)", (postcode.get(),))
+                cursor_obj.execute("SELECT postcode_id FROM postcodes WHERE postcode = ?", (postcode.get(),))
+                postcode_id = cursor_obj.fetchone()
 
-        encrypted_email = fernet.encrypt(email.get().encode()).decode()
-        encrypted_password = fernet.encrypt(password.get().encode()).decode()
+            postcode_id = postcode_id[0]
 
-        cursor_obj.execute(
-            "INSERT INTO user (salutations_id, first_name, last_name, email, address, postcode_id, password, is_admin) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (salutation_id, firstName.get(), lastName.get(), encrypted_email, address.get(), postcode_id,
-             encrypted_password, "FALSE")
-        )
+            encrypted_email = fernet.encrypt(email.get().encode()).decode()
+            encrypted_password = fernet.encrypt(password.get().encode()).decode()
 
-        connection_obj.commit()
-        messagebox.showinfo(message="Registration Successful", title="Success")
+            cursor_obj.execute(
+                "INSERT INTO user (salutations_id, first_name, last_name, email, address, postcode_id, password, is_admin) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (salutation_id, firstName.get(), lastName.get(), encrypted_email, address.get(), postcode_id,
+                 encrypted_password, "FALSE")
+            )
 
-    connection_obj.close()
+            connection_obj.commit()
+            messagebox.showinfo(message="Registration Successful", title="Success")
+
+        connection_obj.close()
 
 
 def register():
@@ -521,5 +557,4 @@ def create_car_make_graph():
 
 
 if __name__ == '__main__':
-    send_media_to_sql()
     login()
