@@ -293,6 +293,8 @@ def main():
 
     main_window = Toplevel()
     main_window.geometry("800x800")
+    main_window.minsize(850, 800)
+    main_window.maxsize(850, 800)
     main_window.title("Main Window")
 
     sideBar_colour = "#9E9E9E"
@@ -319,6 +321,30 @@ def main():
         exitButton = Button(sidebar_frame, text="Exit", command=main_window.destroy, **button_style)
         exitButton.pack(padx=5)
 
+    conn = sqlite3.connect("carsales.db")
+    cursor = conn.cursor()
+
+    max_columns = 3
+    row_num = 0
+    col_num = 0
+
+    for row in cursor.execute("SELECT * FROM cars_for_sale"):
+        car_id = row[0]
+        make = row[1]
+        model = row[2]
+        price = row[3]
+
+        car_text = f"{make} {model} - ${price}"
+
+        car_button = Button(main_frame, text=car_text, width=30, height=10)
+        car_button.grid(row=row_num, column=col_num, padx=10, pady=5)
+
+        col_num += 1
+        if col_num >= max_columns:
+            col_num = 0
+            row_num += 1
+
+    conn.close()
     main_window.mainloop()
 
 
