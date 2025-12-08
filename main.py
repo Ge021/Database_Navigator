@@ -355,6 +355,8 @@ def validate_login(email, password):
                 found = True
                 if is_admin == "TRUE":
                     Admin = True
+                elif is_admin == "FALSE":
+                    Admin = False
                 break
 
         if found:
